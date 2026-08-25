@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +21,7 @@ const (
 	ConductorAgentClaude = "claude"
 	ConductorAgentCodex  = "codex"
 	ConductorAgentHermes = "hermes"
+	ConductorAgentPi     = "pi"
 
 	ConductorSessionTitlePrefix     = "conductor-"
 	ConductorHeartbeatMessagePrefix = "Heartbeat:"
@@ -61,6 +63,13 @@ var conductorAgentSpecs = map[string]ConductorAgentSpec{
 		DefaultCommand:         "hermes",
 		InstructionsFileName:   "HERMES.md",
 		SupportsClearOnCompact: true,
+	},
+	ConductorAgentPi: {
+		Agent:                  ConductorAgentPi,
+		DisplayName:            "Pi",
+		DefaultCommand:         "pi",
+		InstructionsFileName:   "AGENTS.md",
+		SupportsClearOnCompact: false,
 	},
 }
 
@@ -408,9 +417,21 @@ func GetConductorAgentSpec(agent string) (ConductorAgentSpec, error) {
 	normalized := normalizeConductorAgent(agent)
 	spec, ok := conductorAgentSpecs[normalized]
 	if !ok {
-		return ConductorAgentSpec{}, fmt.Errorf("unsupported conductor agent %q (supported: %s, %s, %s)", agent, ConductorAgentClaude, ConductorAgentCodex, ConductorAgentHermes)
+		return ConductorAgentSpec{}, fmt.Errorf("unsupported conductor agent %q (supported: %s)", agent, strings.Join(sortedConductorAgents(), ", "))
 	}
 	return spec, nil
+}
+
+// sortedConductorAgents returns the supported conductor agent names in sorted
+// order for stable error/help text. Derived from the conductorAgentSpecs map so
+// adding a new agent never requires updating a separate hardcoded list.
+func sortedConductorAgents() []string {
+	names := make([]string, 0, len(conductorAgentSpecs))
+	for name := range conductorAgentSpecs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // conductorNameRegex validates conductor names: starts with alphanumeric, then alphanumeric/._-
@@ -878,9 +899,12 @@ func SetupConductorWithAgent(name, profile, agent string, heartbeatEnabled bool,
 		// symlink keeps the user's customization; an existing regular file may
 		// carry in-place edits, so re-running setup must not clobber it.
 		var perNameTemplate string
-		if spec.Agent == ConductorAgentHermes {
+		switch spec.Agent {
+		case ConductorAgentHermes:
 			perNameTemplate = conductorPerNameHermesMDTemplate
-		} else {
+		case ConductorAgentPi:
+			perNameTemplate = conductorPerNamePiMDTemplate
+		default:
 			perNameTemplate = conductorPerNameClaudeMDTemplate
 		}
 		content := renderConductorInstructionsTemplate(perNameTemplate, name, profile, spec)
@@ -890,6 +914,12 @@ func SetupConductorWithAgent(name, profile, agent string, heartbeatEnabled bool,
 	}
 	for otherAgent, otherSpec := range conductorAgentSpecs {
 		if otherAgent == spec.Agent {
+			continue
+		}
+		// Skip agents that share this agent's instructions filename (e.g. Codex
+		// and Pi both use AGENTS.md): removing the shared file would delete the
+		// file we just wrote for the current agent.
+		if otherSpec.InstructionsFileName == spec.InstructionsFileName {
 			continue
 		}
 		stalePath := filepath.Join(dir, otherSpec.InstructionsFileName)

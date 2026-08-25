@@ -993,6 +993,62 @@ func TestSetupConductorWithAgent_Codex(t *testing.T) {
 	}
 }
 
+func TestSetupConductorWithAgent_Pi(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+
+	name := "test-pi"
+	if err := SetupConductorWithAgent(name, "default", ConductorAgentPi, true, true, "pi conductor", "", "", "", nil, ""); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	dir, _ := ConductorNameDir(name)
+	agentsPath := filepath.Join(dir, "AGENTS.md")
+	content, err := os.ReadFile(agentsPath)
+	if err != nil {
+		t.Fatalf("failed to read AGENTS.md: %v", err)
+	}
+	if !strings.Contains(string(content), "Pi") {
+		t.Fatal("AGENTS.md should mention Pi")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "CLAUDE.md")); !os.IsNotExist(err) {
+		t.Fatal("CLAUDE.md should not be created for Pi conductor")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "HERMES.md")); !os.IsNotExist(err) {
+		t.Fatal("HERMES.md should not be created for Pi conductor")
+	}
+
+	meta, err := LoadConductorMeta(name)
+	if err != nil {
+		t.Fatalf("failed to load meta: %v", err)
+	}
+	if meta.Agent != ConductorAgentPi {
+		t.Fatalf("agent = %q, want %q", meta.Agent, ConductorAgentPi)
+	}
+	if meta.GetClearOnCompact() {
+		t.Fatal("pi conductor should not enable clear_on_compact")
+	}
+}
+
+func TestGetConductorAgentSpec_Pi(t *testing.T) {
+	spec, err := GetConductorAgentSpec(ConductorAgentPi)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if spec.Agent != ConductorAgentPi {
+		t.Fatalf("agent = %q, want %q", spec.Agent, ConductorAgentPi)
+	}
+	if spec.DefaultCommand != "pi" {
+		t.Fatalf("DefaultCommand = %q, want %q", spec.DefaultCommand, "pi")
+	}
+	if spec.InstructionsFileName != "AGENTS.md" {
+		t.Fatalf("InstructionsFileName = %q, want %q", spec.InstructionsFileName, "AGENTS.md")
+	}
+	if spec.SupportsClearOnCompact {
+		t.Fatal("pi should not support clear_on_compact")
+	}
+}
+
 func TestSetupConductorWithAgent_DefaultsHeartbeatInterval(t *testing.T) {
 	tmpHome := t.TempDir()
 	t.Setenv("HOME", tmpHome)
