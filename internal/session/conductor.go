@@ -928,11 +928,20 @@ func SetupConductorWithAgent(name, profile, agent string, heartbeatEnabled bool,
 		}
 	}
 
-	// Write per-conductor POLICY.md symlink if custom path provided
+	// Write per-conductor POLICY.md symlink if custom path provided, or auto-link to shared POLICY.md
 	if customPolicyMD != "" {
 		policyPath := filepath.Join(dir, "POLICY.md")
 		if err := createSymlinkWithExpansion(policyPath, customPolicyMD); err != nil {
 			return fmt.Errorf("failed to create POLICY.md symlink: %w", err)
+		}
+	} else {
+		// Auto-link to shared POLICY.md in parent conductor directory if present
+		sharedPolicyPath := filepath.Join(filepath.Dir(dir), "POLICY.md")
+		if _, err := os.Stat(sharedPolicyPath); err == nil {
+			policyPath := filepath.Join(dir, "POLICY.md")
+			if _, err := os.Lstat(policyPath); os.IsNotExist(err) {
+				_ = os.Symlink("../POLICY.md", policyPath)
+			}
 		}
 	}
 

@@ -2721,13 +2721,16 @@ type statusCounts struct {
 	total   int
 }
 
-// countByStatus counts sessions by their status
+// countByStatus counts active (unarchived) sessions by their status
 func countByStatus(instances []*session.Instance) statusCounts {
 	// Warm tmux pane-title cache + load hook statuses so `status`/`status --json`
 	// reports the same counts the TUI and /api/menu do (issue #610).
 	session.RefreshInstancesForCLIStatus(instances)
 	var counts statusCounts
 	for _, inst := range instances {
+		if inst.IsArchived() {
+			continue
+		}
 		_ = inst.UpdateStatus() // Refresh status from tmux
 		switch inst.Status {
 		case session.StatusRunning:
@@ -2872,6 +2875,9 @@ func handleStatus(profile string, args []string) {
 			session.RefreshInstancesForCLIStatus(instances)
 			resp.Sessions = make([]statusSessionJSON, 0, len(instances))
 			for _, inst := range instances {
+				if inst.IsArchived() {
+					continue
+				}
 				_ = inst.UpdateStatus()
 				sj := statusSessionJSON{
 					ID:       inst.ID,
@@ -2898,6 +2904,9 @@ func handleStatus(profile string, args []string) {
 		printStatusGroup := func(label, symbol string, status session.Status) {
 			var matching []*session.Instance
 			for _, inst := range instances {
+				if inst.IsArchived() {
+					continue
+				}
 				if inst.Status == status {
 					matching = append(matching, inst)
 				}
