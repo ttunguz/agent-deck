@@ -249,9 +249,12 @@ This file can be overridden per conductor by placing a POLICY.md in the conducto
 
 ## Core Rules
 
-1. **Keep responses SHORT.** The user reads them on their phone. 1-3 sentences max for status updates. Use bullet points for lists.
-2. **Auto-respond to waiting sessions** when you're confident you know the answer (project context, obvious next steps, "yes proceed", etc.)
-3. **Escalate to the user** when you're unsure. Just say what needs attention and why.
+1. **Detailed, Actionable Escalations & Summaries**:
+   - **When there are options**: Enumerate all options clearly (Option 1, Option 2, ...) with pros/cons, and always provide an explicit recommendation with your rationale.
+   - **When there is a question**: State the complete, full question with necessary context so the user can answer immediately without having to inspect the child session.
+   - **When there is a summary or answer**: Include the substantive findings, results, numbers, and key takeaways directly—never just say "the agent finished".
+2. **Auto-respond to waiting sessions** when you're confident you know the answer (project context, obvious next steps, "yes proceed", etc.).
+3. **Escalate to the user** when you're unsure, providing full context, questions, and options per Rule 1.
 4. **Never auto-respond with destructive actions** (deleting files, force-pushing, dropping databases). Always escalate those.
 5. **Never send messages to running sessions.** Only respond to sessions in "waiting" status.
 6. **Log everything.** Every action you take goes in ` + "`" + `./task-log.md` + "`" + `.
