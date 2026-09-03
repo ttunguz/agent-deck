@@ -88,11 +88,43 @@ func (d *PromptDetector) HasPrompt(content string) bool {
 	case "deepseek":
 		return d.hasDeepSeekPrompt(content)
 
+	case "pi":
+		return d.hasPiPrompt(content)
+
 	default:
 		// Generic shell - check for common prompts
 		return d.hasShellPrompt(content)
 	}
 }
+
+// hasPiPrompt detects a Pi coding agent pane that is waiting for input.
+func (d *PromptDetector) hasPiPrompt(content string) bool {
+	lower := strings.ToLower(content)
+	if strings.Contains(lower, "esc to interrupt") ||
+		strings.Contains(lower, "ctrl+c to interrupt") ||
+		strings.Contains(content, "Working...") ||
+		strings.Contains(content, "[running]") ||
+		strings.Contains(content, "[subagent]") {
+		return false
+	}
+	// Check spinner characters in recent lines (indicates active LLM streaming/working)
+	spinnerChars := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	lines := strings.Split(content, "\n")
+	for i := len(lines) - 1; i >= 0 && i >= len(lines)-10; i-- {
+		line := lines[i]
+		for _, sp := range spinnerChars {
+			if strings.Contains(line, sp) {
+				return false
+			}
+		}
+	}
+	if piPromptStatusBar.MatchString(content) || strings.Contains(content, "pi>") {
+		return true
+	}
+	return d.hasShellPrompt(content)
+}
+
+var piPromptStatusBar = regexp.MustCompile(`(?mi)MCP:\s+\d+(?:/\d+)?\s+servers|\d+(?:\.\d+)?%/\d+(?:\.\d+)?[MBk]`)
 
 // hasDeepSeekPrompt detects a DeepSeek Harness pane that is waiting.
 //
